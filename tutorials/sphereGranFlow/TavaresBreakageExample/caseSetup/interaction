@@ -55,6 +55,18 @@ model
     
     minBreakageSize (5.0e-4);                     // Minimum particle size for breakage [m]
                                                   // Particles smaller than this won't break
+    
+    // Fragment generation parameters (Phase 2)
+    numFragments (2);                             // Number of fragments when particle breaks
+                                                  // Typically 2-10 depending on material
+    
+    sizeRatio (0.7);                              // Fragment size ratio [-]
+                                                  // Controls relative size of daughter particles
+                                                  // Range: 0.5-0.9
+    
+    energyFraction (0.5);                         // Energy fraction retained by fragments [-]
+                                                  // Fraction of kinetic energy transferred to fragments
+                                                  // Range: 0.3-0.7 (rest dissipated in breakage)
 }
 
 /*---------------------------------------------------------------------------

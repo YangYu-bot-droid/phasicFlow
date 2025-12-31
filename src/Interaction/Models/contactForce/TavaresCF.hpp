@@ -23,6 +23,7 @@ Licence:
 
 #include "types.hpp"
 #include "symArrays.hpp"
+#include "TavaresBreakageEvent.hpp"
 
 namespace pFlow::cfModels
 {
@@ -61,15 +62,20 @@ public:
 		real    E50_    = 1.0e-3;     // Characteristic energy (J/kg)
 		real    gamma_  = 1.0;        // Breakage rate parameter
 		real    min_breakage_size_ = 1.0e-5;  // Minimum size for breakage (m)
+		uint32  num_fragments_ = 2;   // Number of fragments when breakage occurs
+		real    size_ratio_ = 0.7;    // Fragment size ratio
+		real    energy_fraction_ = 0.5; // Energy fraction retained by fragments
 
 		INLINE_FUNCTION_HD
 		TavaresProperties(){}
 
 		INLINE_FUNCTION_HD
 		TavaresProperties(real kn, real kt, real etha_n, real etha_t, real mu,
-		                  real E50, real gamma, real min_size):
+		                  real E50, real gamma, real min_size,
+		                  uint32 num_frag, real size_r, real energy_f):
 			kn_(kn), kt_(kt), ethan_(etha_n), ethat_(etha_t), mu_(mu),
-			E50_(E50), gamma_(gamma), min_breakage_size_(min_size)
+			E50_(E50), gamma_(gamma), min_breakage_size_(min_size),
+			num_fragments_(num_frag), size_ratio_(size_r), energy_fraction_(energy_f)
 		{}		
 
 		INLINE_FUNCTION_HD
@@ -108,10 +114,16 @@ protected:
 		realVector defaultE50("defaultE50", nElem, 1.0e-3);
 		realVector defaultGamma("defaultGamma", nElem, 1.0);
 		realVector defaultMinSize("defaultMinSize", nElem, 1.0e-5);
+		realVector defaultNumFragments("defaultNumFragments", nElem, 2.0);
+		realVector defaultSizeRatio("defaultSizeRatio", nElem, 0.7);
+		realVector defaultEnergyFraction("defaultEnergyFraction", nElem, 0.5);
 		
 		auto E50 = dict.getValOrSet<realVector>("E50", defaultE50);
 		auto gamma = dict.getValOrSet<realVector>("gamma", defaultGamma);
 		auto minBreakageSize = dict.getValOrSet<realVector>("minBreakageSize", defaultMinSize);
+		auto numFragments = dict.getValOrSet<realVector>("numFragments", defaultNumFragments);
+		auto sizeRatio = dict.getValOrSet<realVector>("sizeRatio", defaultSizeRatio);
+		auto energyFraction = dict.getValOrSet<realVector>("energyFraction", defaultEnergyFraction);
 
 		if(nElem != kt.size())
 		{
@@ -196,7 +208,8 @@ protected:
 		ForAll(i,kn)
 		{
 			prop[i] = {kn[i], kt[i], etha_n[i], etha_t[i], mu[i], 
-			           E50[i], gamma[i], minBreakageSize[i]};
+			           E50[i], gamma[i], minBreakageSize[i],
+			           static_cast<uint32>(numFragments[i]), sizeRatio[i], energyFraction[i]};
 		}
 
 		TavaresProperties_.assign(prop);
@@ -379,6 +392,70 @@ public:
 	real getAccumulatedEnergy(const contactForceStorage& history) const
 	{
 		return history.accumulated_energy_;
+	}
+	
+	/**
+	 * @brief Generate fragment parameters for a breakage event
+	 * @param propId_i Property ID of first particle
+	 * @param propId_j Property ID of second particle
+	 * @param Ri Radius of first particle
+	 * @param Rj Radius of second particle
+	 * @return Fragment generation parameters
+	 */
+	INLINE_FUNCTION_HD
+	TavaresFragmentParams getFragmentParams(
+		uint32 propId_i,
+		uint32 propId_j,
+		real Ri,
+		real Rj
+	) const
+	{
+		auto prop = TavaresProperties_(propId_i, propId_j);
+		
+		TavaresFragmentParams params;
+		params.numFragments = prop.num_fragments_;
+		params.sizeRatio = prop.size_ratio_;
+		params.energyFraction = prop.energy_fraction_;
+		
+		// Use simple Rosin-Rammler defaults
+		// In full implementation, these would be material-specific
+		params.rr_x0 = 0.5;  // Characteristic size (fraction of parent)
+		params.rr_n = 1.0;   // Uniformity parameter
+		
+		return params;
+	}
+	
+	/**
+	 * @brief Create a breakage event for particle i or j
+	 * @param particleId ID of particle that breaks
+	 * @param diameter Diameter of breaking particle
+	 * @param impactEnergy Impact energy
+	 * @param position Position of particle
+	 * @param velocity Velocity of particle
+	 * @param propertyId Property ID of particle
+	 * @param breakageProb Calculated breakage probability
+	 * @return Breakage event structure
+	 */
+	INLINE_FUNCTION_HD
+	TavaresBreakageEvent createBreakageEvent(
+		uint32 particleId,
+		real diameter,
+		real impactEnergy,
+		const realx3& position,
+		const realx3& velocity,
+		uint32 propertyId,
+		real breakageProb
+	) const
+	{
+		return TavaresBreakageEvent(
+			particleId,
+			diameter,
+			impactEnergy,
+			position,
+			velocity,
+			propertyId,
+			breakageProb
+		);
 	}
 	
 };
