@@ -102,13 +102,16 @@ protected:
 		auto et = dict.getVal<realVector>("et");
 		auto mu = dict.getVal<realVector>("mu");
 		
-		// Tavares-specific parameters
-		auto E50 = dict.getValOrSet<realVector>("E50", realVector(kn.size(), 1.0e-3));
-		auto gamma = dict.getValOrSet<realVector>("gamma", realVector(kn.size(), 1.0));
-		auto minBreakageSize = dict.getValOrSet<realVector>("minBreakageSize", 
-		                                                      realVector(kn.size(), 1.0e-5));
-
 		auto nElem = kn.size();
+		
+		// Tavares-specific parameters with default values
+		realVector defaultE50("defaultE50", nElem, 1.0e-3);
+		realVector defaultGamma("defaultGamma", nElem, 1.0);
+		realVector defaultMinSize("defaultMinSize", nElem, 1.0e-5);
+		
+		auto E50 = dict.getValOrSet<realVector>("E50", defaultE50);
+		auto gamma = dict.getValOrSet<realVector>("gamma", defaultGamma);
+		auto minBreakageSize = dict.getValOrSet<realVector>("minBreakageSize", defaultMinSize);
 
 		if(nElem != kt.size())
 		{
