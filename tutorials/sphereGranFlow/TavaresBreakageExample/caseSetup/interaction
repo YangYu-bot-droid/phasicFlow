@@ -1,0 +1,118 @@
+/* -------------------------------*- C++ -*--------------------------------- *\ 
+|  phasicFlow File                                                            | 
+|  copyright: www.cemf.ir                                                     | 
+\* ------------------------------------------------------------------------- */ 
+objectName interaction;
+objectType dicrionary;
+fileFormat  ASCII;
+/*---------------------------------------------------------------------------*/
+
+// Tavares Breakage Model Example Configuration
+// This demonstrates the use of GPU-parallel Tavares fragmentation model
+
+materials                   (rock);              // Material names
+
+densities                  (2650.0);             // Density of rock [kg/m3]
+
+contactListType   sortedContactList; 
+
+contactSearch
+{
+  
+    method          NBS;                          // Method for broad search 
+
+    updateInterval   10;
+
+    sizeRatio       1.1;
+
+    cellExtent     0.55;
+
+    adjustableBox   Yes;
+} 
+
+model
+{
+    // Use Tavares breakage model (GPU-compatible)
+    contactForceModel    TavaresLimited;          // or TavaresNonLimited
+    
+    rollingFrictionModel              normal;
+
+    // Standard contact parameters
+    Yeff  (1.0e6);                                // Young modulus [Pa]
+    Geff  (0.8e6);                                // Shear modulus [Pa]
+    nu    (0.25);                                 // Poisson's ratio [-]
+    en    (0.7);                                  // Coefficient of normal restitution
+    mu    (0.3);                                  // Dynamic friction 
+    mur   (0.1);                                  // Rolling friction      
+    
+    // Tavares-specific breakage parameters
+    E50   (5.0e-3);                               // Characteristic energy for 50% breakage [J/kg]
+                                                  // Typical values: 1e-4 to 1e-2 J/kg
+    
+    gamma (1.5);                                  // Breakage rate parameter [-]
+                                                  // Typical values: 0.5 to 3.0
+                                                  // Higher values = more sensitive to energy
+    
+    minBreakageSize (5.0e-4);                     // Minimum particle size for breakage [m]
+                                                  // Particles smaller than this won't break
+    
+    // Fragment generation parameters (Phase 2)
+    numFragments (2);                             // Number of fragments when particle breaks
+                                                  // Typically 2-10 depending on material
+    
+    sizeRatio (0.7);                              // Fragment size ratio [-]
+                                                  // Controls relative size of daughter particles
+                                                  // Range: 0.5-0.9
+    
+    energyFraction (0.5);                         // Energy fraction retained by fragments [-]
+                                                  // Fraction of kinetic energy transferred to fragments
+                                                  // Range: 0.3-0.7 (rest dissipated in breakage)
+}
+
+/*---------------------------------------------------------------------------
+Tavares Model Description:
+--------------------------
+The Tavares and King (1998) model calculates breakage probability as:
+    P(E) = 1 - exp(-(E/E50)^gamma)
+
+Where:
+    E     = Specific impact energy (energy per unit mass) [J/kg]
+    E50   = Energy for 50% breakage probability [J/kg]
+    gamma = Breakage rate parameter (shape factor) [-]
+
+Model Parameters:
+-----------------
+E50: Controls the energy threshold for breakage
+    - Lower values = easier to break
+    - Typical range: 1e-4 to 1e-2 J/kg
+    - Material dependent:
+        * Soft materials (coal): ~1e-4 J/kg
+        * Medium materials (limestone): ~1e-3 J/kg
+        * Hard materials (granite): ~1e-2 J/kg
+
+gamma: Controls breakage probability sensitivity
+    - Higher values = steeper probability curve
+    - Typical range: 0.5 to 3.0
+    - gamma = 1.0: Linear-exponential response
+    - gamma > 1.0: More sensitive to high energies
+    - gamma < 1.0: More sensitive to low energies
+
+minBreakageSize: Minimum particle diameter for breakage
+    - Prevents unrealistic fragmentation of very small particles
+    - Typically set to smallest physically meaningful size
+    - Should be larger than smallest particle in simulation
+
+GPU Compatibility:
+------------------
+This model is fully compatible with GPU execution via Kokkos.
+All calculations are performed in device memory using INLINE_FUNCTION_HD
+decorators, enabling parallel execution on CUDA-enabled GPUs.
+
+Usage Notes:
+------------
+1. This model extends the standard linear contact model with breakage detection
+2. Breakage events are flagged but actual particle fragmentation requires
+   integration with particle management system
+3. For production use, implement particle splitting/daughter distribution
+4. Monitor accumulated_energy_ in contact history for detailed analysis
+---------------------------------------------------------------------------*/
